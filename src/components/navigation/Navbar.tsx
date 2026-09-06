@@ -6,6 +6,7 @@ const navItems = [
   { label: "Explore", href: "#explore" },
   { label: "How It Works", href: "#how-it-works" },
   { label: "Trip Quest", href: "#trip-quest" },
+  { label: "History", href: "/history" },
 ]
 
 function Navbar() {
@@ -56,12 +57,22 @@ function Navbar() {
         {/* Mobile menu button */}
         <button
           type="button"
-          onClick={() => setIsMenuOpen((open) => !open)}
+          onClick={() =>
+            setIsMenuOpen((open) => !open)
+          }
           className="flex h-10 w-10 items-center justify-center rounded-full bg-[#28483D] text-[#F1E8D8] md:hidden"
-          aria-label={isMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+          aria-label={
+            isMenuOpen
+              ? "Close navigation menu"
+              : "Open navigation menu"
+          }
           aria-expanded={isMenuOpen}
         >
-          {isMenuOpen ? <X size={18} /> : <Menu size={18} />}
+          {isMenuOpen ? (
+            <X size={18} />
+          ) : (
+            <Menu size={18} />
+          )}
         </button>
       </nav>
 
@@ -73,7 +84,9 @@ function Navbar() {
               <a
                 key={item.label}
                 href={item.href}
-                onClick={() => setIsMenuOpen(false)}
+                onClick={() =>
+                  setIsMenuOpen(false)
+                }
                 className="rounded-2xl px-4 py-3 text-sm font-medium text-[#241F1A]/75 transition-colors hover:bg-[#CFC1AA]/40 hover:text-[#C85A3F]"
               >
                 {item.label}
@@ -82,7 +95,9 @@ function Navbar() {
 
             <a
               href="#planner"
-              onClick={() => setIsMenuOpen(false)}
+              onClick={() =>
+                setIsMenuOpen(false)
+              }
               className="mt-2 flex items-center justify-between rounded-2xl bg-[#C85A3F] px-4 py-3 text-sm font-semibold text-[#F9F2E7]"
             >
               Start Planning

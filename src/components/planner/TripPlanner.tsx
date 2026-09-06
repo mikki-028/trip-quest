@@ -9,9 +9,12 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { generateItinerary } from "../../engine/itineraryEngine"
+import { generateQuests } from "../../engine/questEngine"
 import { getNearbyPlaces } from "../../services/places"
 import { getDestinationWeather } from "../../services/weather"
+import { saveTripToSupabase } from "../../services/trips"
 import type { Persona } from "../../types/place"
+import { saveTripToHistory } from "../../utils/tripStorage"
 
 const personas: Persona[] = [
   "Backpacker",
@@ -28,7 +31,8 @@ function TripPlanner() {
 
   const [destination, setDestination] = useState("")
   const [duration, setDuration] = useState("3")
-  const [persona, setPersona] = useState<Persona>("Backpacker")
+  const [persona, setPersona] =
+    useState<Persona>("Backpacker")
   const [openDropdown, setOpenDropdown] = useState<
     "duration" | "persona" | null
   >(null)
@@ -75,6 +79,8 @@ function TripPlanner() {
         places,
       })
 
+      const quests = generateQuests(itinerary)
+
       if (itinerary.length === 0) {
         throw new Error(
           `We couldn't build an itinerary for ${weather.location.name} with the available places.`,
@@ -96,7 +102,7 @@ function TripPlanner() {
         persona,
         weather,
         days: itinerary,
-        quests: [],
+        quests,
         createdAt: new Date().toISOString(),
       }
 
@@ -105,8 +111,12 @@ function TripPlanner() {
         `trip-quest-${tripId}`,
         JSON.stringify(trip),
       )
+      await saveTripToSupabase(trip)
 
-      // 7. Open the generated trip.
+      // 7. Add the trip to History.
+      saveTripToHistory(trip)
+
+      // 8. Open the generated trip.
       navigate(`/trip/${tripId}`)
     } catch (error) {
       setError(
@@ -179,7 +189,8 @@ function TripPlanner() {
               </span>
 
               <span className="text-sm font-semibold text-[#241F1A]">
-                {duration} {duration === "1" ? "day" : "days"}
+                {duration}{" "}
+                {duration === "1" ? "day" : "days"}
               </span>
             </span>
 
@@ -214,7 +225,10 @@ function TripPlanner() {
                       }`}
                     >
                       <span>
-                        {item} {item === "1" ? "day" : "days"}
+                        {item}{" "}
+                        {item === "1"
+                          ? "day"
+                          : "days"}
                       </span>
 
                       {isSelected && (
