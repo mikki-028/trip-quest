@@ -1,5 +1,8 @@
-const OVERPASS_URL =
-  "https://overpass.private.coffee/api/interpreter"
+const OVERPASS_URLS = [
+  "https://overpass.private.coffee/api/interpreter",
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.openstreetmap.fr/api/interpreter",
+]
 
 export async function POST(request: Request) {
   try {
@@ -46,28 +49,48 @@ export async function POST(request: Request) {
       out center tags;
     `
 
-    const response = await fetch(OVERPASS_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        data: query,
-      }),
-    })
+    let lastError = "Unknown Overpass error."
 
-    if (!response.ok) {
-      return Response.json(
-        {
-          error: `Overpass request failed with status ${response.status}.`,
-        },
-        { status: 502 },
-      )
+    for (const url of OVERPASS_URLS) {
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent":
+              "TripQuest/1.0 (travel planner hackathon project)",
+          },
+          body: new URLSearchParams({
+            data: query,
+          }),
+        })
+
+        if (!response.ok) {
+          lastError = `${url} returned HTTP ${response.status}`
+          continue
+        }
+
+        const data = await response.json()
+
+        return Response.json(data)
+      } catch (error) {
+        lastError =
+          error instanceof Error
+            ? error.message
+            : "Unknown network error."
+      }
     }
 
-    const data = await response.json()
+    console.error("All Overpass endpoints failed:", lastError)
 
-    return Response.json(data)
+    return Response.json(
+      {
+        error:
+          "Unable to discover places right now.",
+        details: lastError,
+      },
+      { status: 502 },
+    )
   } catch (error) {
     console.error("Places API error:", error)
 
