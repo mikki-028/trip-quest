@@ -1,8 +1,6 @@
 import type { Place, ActivityType } from "../types/place"
 import type { Location } from "../types/weather"
 
-const OVERPASS_URL =
-  "https://overpass-api.de/api/interpreter"
 
 interface OverpassElement {
   id: number
@@ -192,38 +190,15 @@ export async function getNearbyPlaces(
   location: Location,
   radiusMeters = 8000,
 ): Promise<Place[]> {
-  const query = `
-    [out:json][timeout:25];
-
-    (
-      nwr["tourism"="attraction"](around:${radiusMeters},${location.latitude},${location.longitude});
-      nwr["tourism"="museum"](around:${radiusMeters},${location.latitude},${location.longitude});
-      nwr["tourism"="gallery"](around:${radiusMeters},${location.latitude},${location.longitude});
-      nwr["tourism"="viewpoint"](around:${radiusMeters},${location.latitude},${location.longitude});
-      nwr["tourism"="artwork"](around:${radiusMeters},${location.latitude},${location.longitude});
-
-      nwr["historic"="monument"](around:${radiusMeters},${location.latitude},${location.longitude});
-      nwr["historic"="castle"](around:${radiusMeters},${location.latitude},${location.longitude});
-      nwr["historic"="ruins"](around:${radiusMeters},${location.latitude},${location.longitude});
-      nwr["historic"="memorial"](around:${radiusMeters},${location.latitude},${location.longitude});
-
-      nwr["leisure"="park"](around:${radiusMeters},${location.latitude},${location.longitude});
-      nwr["leisure"="garden"](around:${radiusMeters},${location.latitude},${location.longitude});
-
-      nwr["tourism"="theme_park"](around:${radiusMeters},${location.latitude},${location.longitude});
-      nwr["tourism"="zoo"](around:${radiusMeters},${location.latitude},${location.longitude});
-    );
-
-    out center tags;
-  `
-
-  const response = await fetch(OVERPASS_URL, {
+  const response = await fetch("/api/places", {
     method: "POST",
     headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
+      "Content-Type": "application/json",
     },
-    body: new URLSearchParams({
-      data: query,
+    body: JSON.stringify({
+      latitude: location.latitude,
+      longitude: location.longitude,
+      radiusMeters,
     }),
   })
 
@@ -246,7 +221,10 @@ export async function getNearbyPlaces(
 
   const uniquePlaces = Array.from(
     new Map(
-      places.map((place) => [place.name.toLowerCase(), place]),
+      places.map((place) => [
+        place.name.toLowerCase(),
+        place,
+      ]),
     ).values(),
   )
 
