@@ -4,28 +4,77 @@ const OVERPASS_URLS = [
   "https://overpass.openstreetmap.fr/api/interpreter",
 ]
 
+function jsonResponse(
+  data: unknown,
+  status = 200,
+) {
+  return new Response(
+    JSON.stringify(data),
+    {
+      status,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    },
+  )
+}
+
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
+    // Read the raw body first instead of relying on request.json().
+    const rawBody = await request.text()
 
-    const {
-      latitude,
-      longitude,
-      radiusMeters = 8000,
-    } = body
+    console.log(
+      "[TripQuest] Incoming places request:",
+      rawBody,
+    )
+
+    if (!rawBody) {
+      return jsonResponse(
+        { error: "Request body is empty." },
+        400,
+      )
+    }
+
+    let body: {
+      latitude?: unknown
+      longitude?: unknown
+      radiusMeters?: unknown
+    }
+
+    try {
+      body = JSON.parse(rawBody)
+    } catch {
+      return jsonResponse(
+        {
+          error: "Request body contains invalid JSON.",
+        },
+        400,
+      )
+    }
+
+    const latitude = Number(body.latitude)
+    const longitude = Number(body.longitude)
+    const radiusMeters = Number(
+      body.radiusMeters ?? 8000,
+    )
 
     if (
-      typeof latitude !== "number" ||
-      typeof longitude !== "number"
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude) ||
+      !Number.isFinite(radiusMeters)
     ) {
-      return Response.json(
-        { error: "Invalid coordinates." },
-        { status: 400 },
+      return jsonResponse(
+        {
+          error: "Invalid coordinates.",
+          received: body,
+        },
+        400,
       )
     }
 
     const query = `
-      [out:json][timeout:25];
+      [out:json][timeout:20];
 
       (
         nwr["tourism"="attraction"](around:${radiusMeters},${latitude},${longitude});
@@ -49,54 +98,89 @@ export async function POST(request: Request) {
       out center tags;
     `
 
-    let lastError = "Unknown Overpass error."
+    let lastError =
+      "All Overpass providers failed."
 
     for (const url of OVERPASS_URLS) {
       try {
+        console.log(
+          `[TripQuest] Trying Overpass: ${url}`,
+        )
+
         const response = await fetch(url, {
           method: "POST",
           headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Type":
+              "application/x-www-form-urlencoded",
+            Accept: "application/json",
             "User-Agent":
               "TripQuest/1.0 (travel planner hackathon project)",
           },
           body: new URLSearchParams({
             data: query,
-          }),
+          }).toString(),
         })
 
+        const responseText = await response.text()
+
+        console.log(
+          `[TripQuest] Overpass ${response.status}:`,
+          responseText.slice(0, 500),
+        )
+
         if (!response.ok) {
-          lastError = `${url} returned HTTP ${response.status}`
+          lastError =
+            `${url} returned HTTP ${response.status}`
           continue
         }
 
-        const data = await response.json()
+        let data: unknown
 
-        return Response.json(data)
+        try {
+          data = JSON.parse(responseText)
+        } catch {
+          lastError =
+            `${url} returned invalid JSON`
+          continue
+        }
+
+        return jsonResponse(data, 200)
       } catch (error) {
         lastError =
           error instanceof Error
             ? error.message
             : "Unknown network error."
+
+        console.error(
+          `[TripQuest] Overpass error for ${url}:`,
+          error,
+        )
       }
     }
 
-    console.error("All Overpass endpoints failed:", lastError)
-
-    return Response.json(
+    return jsonResponse(
       {
         error:
           "Unable to discover places right now.",
         details: lastError,
       },
-      { status: 502 },
+      502,
     )
   } catch (error) {
-    console.error("Places API error:", error)
+    console.error(
+      "[TripQuest] Places function crashed:",
+      error,
+    )
 
-    return Response.json(
-      { error: "Unable to discover places." },
-      { status: 500 },
+    return jsonResponse(
+      {
+        error: "Unable to discover places.",
+        details:
+          error instanceof Error
+            ? error.message
+            : String(error),
+      },
+      500,
     )
   }
 }
